@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MapPin, Users, Plus, UserPlus, Navigation } from "lucide-react";
+import { MapPin, Users, Plus, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
+import Header from "@/components/Header";
 import MapView from "@/components/MapView";
 import GroupPanel from "@/components/GroupPanel";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
@@ -16,37 +17,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/home" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <Navigation className="w-6 h-6 text-white" />
-              </div>
-              <span className="font-bold text-xl">TravelSync</span>
-            </Link>
-            
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={() => setShowCreateDialog(true)}
-                className="bg-primary hover:bg-primary/90"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Group
-              </Button>
-              <Button
-                onClick={() => setShowJoinDialog(true)}
-                variant="outline"
-                className="border-primary/20"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Join Group
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <div className="flex h-[calc(100vh-73px)]">

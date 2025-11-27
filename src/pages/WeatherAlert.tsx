@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Header from "@/components/Header";
 
 type AQIData = {
   aqi: number;
@@ -24,8 +25,10 @@ const WeatherAlert = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="p-6">
+        <div className="max-w-3xl mx-auto">
         <h2 className="text-2xl font-semibold mb-4">Air Quality & Forecast</h2>
 
         <Card className="p-6 mb-4">
@@ -56,6 +59,7 @@ const WeatherAlert = () => {
             <li>+12 hours — AQI: {data ? Math.max(20, data.aqi - 15) : "--"} (Good/Moderate)</li>
           </ul>
         </Card>
+        </div>
       </div>
     </div>
   );
