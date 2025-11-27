@@ -34,7 +34,15 @@ const Header = () => {
 
           {/* Right side - Navigation menu */}
           <nav className="flex items-center gap-1 sm:gap-2">
-            {navItems.map((item) => {
+            {navItems
+              .filter((item) => {
+                // Hide Group Chat and Group Navigation from the hero/homepage
+                if (location.pathname === "/home") {
+                  return !(item.href === "/group-chat" || item.href === "/group-navigation");
+                }
+                return true;
+              })
+              .map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
               return (

@@ -2,11 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MapPin, Users, Clock, Bell, Navigation, Target } from "lucide-react";
 import { Link } from "react-router-dom";
+import Header from "@/components/Header";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      {/* Hero Section */}
+      <Header />
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--secondary)))] opacity-5" />
         
@@ -42,29 +43,6 @@ const Index = () => {
               </Link>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Quick Actions: pick a page to go to */}
-      <section className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto text-center mb-4">
-          <h3 className="text-lg font-medium">Quick Actions</h3>
-          <p className="text-sm text-muted-foreground">Choose a feature to jump to</p>
-        </div>
-
-        <div className="flex flex-wrap gap-3 justify-center">
-          <Link to="/group-chat">
-            <Button variant="outline" className="px-4">Group Chat</Button>
-          </Link>
-          <Link to="/group-navigation">
-            <Button className="px-4">Group Navigation</Button>
-          </Link>
-          <Link to="/profile">
-            <Button variant="ghost" className="px-4">Profile</Button>
-          </Link>
-          <Link to="/weather-alert">
-            <Button variant="outline" className="px-4">Air Quality</Button>
-          </Link>
         </div>
       </section>
 
@@ -130,32 +108,6 @@ const Index = () => {
               Create groups quickly, invite friends with a simple code, and manage members effortlessly.
             </p>
           </Card>
-        </div>
-      </section>
-
-      {/* Bento Features Showcase */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-semibold mb-2">Explore Key Features</h2>
-            <p className="text-muted-foreground">Interactive preview of MeetMap capabilities</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { icon: <MapPin className="w-6 h-6" />, title: "Real-time Tracking", desc: "Track group members in real-time on an interactive map" },
-              { icon: <Users className="w-6 h-6" />, title: "Group Management", desc: "Create, join, and manage groups with ease" },
-              { icon: <Navigation className="w-6 h-6" />, title: "Smart Navigation", desc: "Get optimized routes and arrival predictions" },
-              { icon: <Clock className="w-6 h-6" />, title: "Time Sync", desc: "Coordinate meetup times across your group" },
-              { icon: <Bell className="w-6 h-6" />, title: "Live Alerts", desc: "Get notified of group updates and changes" },
-              { icon: <Target className="w-6 h-6" />, title: "Waypoints", desc: "Mark and share important locations" }
-            ].map((feature, idx) => (
-              <Card key={idx} className="p-6 hover:shadow-lg transition-shadow border-primary/10 hover:border-primary/30">
-                <div className="text-primary mb-4">{feature.icon}</div>
-                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.desc}</p>
-              </Card>
-            ))}
-          </div>
         </div>
       </section>
 

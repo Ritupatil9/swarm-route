@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
 import GroupChat from "./pages/GroupChat";
 import Profile from "./pages/Profile";
 import GroupNavigation from "./pages/GroupNavigation";
@@ -26,6 +27,7 @@ const App = () => (
           <Routes>
             {/* Show Login at root. After successful login the app navigates to /home */}
             <Route path="/" element={<Login />} />
+            <Route path="/register" element={<SignUp />} />
             <Route
               path="/home"
               element={
