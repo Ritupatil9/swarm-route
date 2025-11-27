@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MapPin, Users, Clock, Bell, Navigation, Target } from "lucide-react";
 import { Link } from "react-router-dom";
-import { MagicBento } from "@/components/MagicBento";
 
 const Index = () => {
   return (
@@ -108,28 +107,6 @@ const Index = () => {
               Create groups quickly, invite friends with a simple code, and manage members effortlessly.
             </p>
           </Card>
-        </div>
-      </section>
-
-      {/* Bento Features Showcase */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="max-w-6xl mx-auto text-center mb-8">
-          <h2 className="text-3xl font-semibold">Explore Key Features</h2>
-          <p className="text-muted-foreground">Interactive preview of MeetMap capabilities</p>
-        </div>
-        <div className="bg-transparent">
-          <MagicBento
-            textAutoHide={true}
-            enableStars={true}
-            enableSpotlight={true}
-            enableBorderGlow={true}
-            enableTilt={true}
-            enableMagnetism={true}
-            clickEffect={true}
-            spotlightRadius={300}
-            particleCount={12}
-            glowColor="230, 25, 56"
-          />
         </div>
       </section>
 
