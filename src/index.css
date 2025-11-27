@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* MeetMap palette (TomTom-inspired): Red, Black, White */
+    /* MeetMap palette: Red (#E61938), Black, White */
     --background: 0 0% 100%; /* white */
     --foreground: 0 0% 0%; /* black */
 
@@ -70,7 +70,7 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Dark theme: invert to black background with white foreground */
+    /* Dark theme: black background with white foreground */
     --background: 0 0% 0%; /* black */
     --foreground: 0 0% 100%; /* white */
 

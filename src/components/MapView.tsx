@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
+import { useMap } from "@/contexts/MapContext";
 
 type Props = {
   /** TomTom API key. If not provided, `VITE_TOMTOM_KEY` will be used. */
@@ -121,6 +122,23 @@ const MapView = ({ apiKey }: Props) => {
 
         // store map instance for cleanup
         (mapContainer.current as any).__ttMap = map;
+        // add click handler for selecting destination
+        try {
+          map.on("click", async (e: any) => {
+            try {
+              const lng = e.lngLat.lng ?? (e.lngLat as any)[0];
+              const lat = e.lngLat.lat ?? (e.lngLat as any)[1];
+
+              // create a small event on the container we can pick up with React state
+              const ev = new CustomEvent("_tt_map_click", { detail: { lat, lng } });
+              mapContainer.current?.dispatchEvent(ev);
+            } catch (err) {
+              // ignore click handling errors
+            }
+          });
+        } catch (err) {
+          // if SDK doesn't support `on` or pattern differs, ignore
+        }
       } catch (err) {
         // silent fail — map won't render
         // developer can inspect console for `tt` availability
@@ -183,9 +201,115 @@ const MapView = ({ apiKey }: Props) => {
     };
   }, [key]);
 
+  // local candidate state and UI handling
+  const [candidate, setCandidate] = useState<{ lat: number; lng: number; label?: string } | null>(null);
+  const destMarkerRef = useRef<any>(null);
+  const { setDestination, destination, clearDestination } = useMap();
+
+  useEffect(() => {
+    const el = mapContainer.current;
+    if (!el) return;
+
+    const handler = async (e: Event) => {
+      const detail = (e as any).detail as { lat: number; lng: number } | undefined;
+      if (!detail) return;
+      const { lat, lng } = detail;
+
+      // attempt reverse geocode if key present
+      let label: string | undefined;
+      if (key) {
+        try {
+          const res = await fetch(
+            `https://api.tomtom.com/search/2/reverseGeocode/${lat},${lng}.json?key=${key}`
+          );
+          if (res.ok) {
+            const json = await res.json();
+            const addr = json?.addresses?.[0]?.address?.freeformAddress;
+            if (addr) label = addr;
+          }
+        } catch (err) {
+          // ignore reverse geocode errors
+        }
+      }
+
+      setCandidate({ lat, lng, label });
+    };
+
+    el.addEventListener("_tt_map_click", handler);
+    return () => el.removeEventListener("_tt_map_click", handler);
+  }, [key]);
+
+  // when destination in context changes, draw persistent marker
+  useEffect(() => {
+    const map = (mapContainer.current as any)?.__ttMap;
+    if (!map) return;
+
+    // clear old marker
+    if (destMarkerRef.current && typeof destMarkerRef.current.remove === "function") {
+      try {
+        destMarkerRef.current.remove();
+      } catch (e) {}
+      destMarkerRef.current = null;
+    }
+
+    if (destination) {
+      try {
+        const el = document.createElement("div");
+        el.style.width = `40px`;
+        el.style.height = `40px`;
+        el.style.display = "flex";
+        el.style.alignItems = "center";
+        el.style.justifyContent = "center";
+        el.style.pointerEvents = "none";
+        el.innerHTML = `
+          <svg width="40" height="40" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 0C7.029 0 3 4.03 3 9.01c0 6.075 8.142 15.558 8.59 16.04.19.208.45.32.71.32.26 0 .52-.112.71-.32.448-.482 8.59-9.965 8.59-16.04C21 4.03 16.971 0 12 0z" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5"/>
+            <circle cx="12" cy="9" r="3.25" fill="#FFFFFF" stroke="#EF4444" stroke-width="0.75"/>
+          </svg>
+        `;
+        destMarkerRef.current = new (window as any).tt.Marker({ element: el })
+          .setLngLat([destination.lng, destination.lat])
+          .addTo(map);
+        // center map toward destination
+        map.panTo([destination.lng, destination.lat]);
+      } catch (e) {
+        // ignore marker draw errors
+      }
+    }
+  }, [destination]);
+
   return (
     <div className="w-full h-full relative bg-muted/20">
       <div ref={mapContainer} className="w-full h-full" />
+
+      {/* Candidate confirm UI */}
+      {candidate && (
+        <div className="absolute right-4 bottom-6 z-50 w-full max-w-sm">
+          <div className="p-4 bg-card border shadow-lg rounded-lg">
+            <div className="text-sm text-muted-foreground mb-2">Set destination</div>
+            <div className="font-medium mb-3">{candidate.label ?? `${candidate.lat.toFixed(5)}, ${candidate.lng.toFixed(5)}`}</div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  // confirm -> persist in context
+                  const dest = { lat: candidate.lat, lng: candidate.lng, label: candidate.label, createdAt: Date.now() };
+                  setDestination(dest);
+                  setCandidate(null);
+                }}
+                className="px-3 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-md w-full"
+              >
+                Set Destination
+              </button>
+              <button
+                onClick={() => setCandidate(null)}
+                className="px-3 py-2 border rounded-md w-full"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
