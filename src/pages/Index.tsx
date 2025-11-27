@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MapPin, Users, Clock, Bell, Navigation, Target } from "lucide-react";
 import { Link } from "react-router-dom";
-import { MagicBento } from "@/components/MagicBento";
 
 const Index = () => {
   return (

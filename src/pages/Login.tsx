@@ -3,19 +3,30 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { signIn } = useAuth();
 
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: wire up auth
-    console.log("login", { email, password });
-    // For now navigate to home page after submit
-    navigate("/home");
+    setError("");
+    setIsLoading(true);
+
+    try {
+      await signIn(email, password);
+      navigate("/home");
+    } catch (err: any) {
+      setError(err.message || "Sign in failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -37,9 +48,13 @@ const Login = () => {
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
           </div>
 
+          {error && <div className="text-sm text-destructive">{error}</div>}
+
           <div className="flex items-center justify-between">
             <Link to="/register" className="text-sm text-primary">Create account</Link>
-            <Button type="submit">Sign In</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
           </div>
         </form>
       </Card>
