@@ -135,23 +135,27 @@ const Index = () => {
 
       {/* Bento Features Showcase */}
       <section className="container mx-auto px-4 py-16">
-        <div className="max-w-6xl mx-auto text-center mb-8">
-          <h2 className="text-3xl font-semibold">Explore Key Features</h2>
-          <p className="text-muted-foreground">Interactive preview of MeetMap capabilities</p>
-        </div>
-        <div className="bg-transparent">
-          <MagicBento
-            textAutoHide={true}
-            enableStars={true}
-            enableSpotlight={true}
-            enableBorderGlow={true}
-            enableTilt={true}
-            enableMagnetism={true}
-            clickEffect={true}
-            spotlightRadius={300}
-            particleCount={12}
-            glowColor="230, 25, 56"
-          />
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-semibold mb-2">Explore Key Features</h2>
+            <p className="text-muted-foreground">Interactive preview of MeetMap capabilities</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: <MapPin className="w-6 h-6" />, title: "Real-time Tracking", desc: "Track group members in real-time on an interactive map" },
+              { icon: <Users className="w-6 h-6" />, title: "Group Management", desc: "Create, join, and manage groups with ease" },
+              { icon: <Navigation className="w-6 h-6" />, title: "Smart Navigation", desc: "Get optimized routes and arrival predictions" },
+              { icon: <Clock className="w-6 h-6" />, title: "Time Sync", desc: "Coordinate meetup times across your group" },
+              { icon: <Bell className="w-6 h-6" />, title: "Live Alerts", desc: "Get notified of group updates and changes" },
+              { icon: <Target className="w-6 h-6" />, title: "Waypoints", desc: "Mark and share important locations" }
+            ].map((feature, idx) => (
+              <Card key={idx} className="p-6 hover:shadow-lg transition-shadow border-primary/10 hover:border-primary/30">
+                <div className="text-primary mb-4">{feature.icon}</div>
+                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
+                <p className="text-sm text-muted-foreground">{feature.desc}</p>
+              </Card>
+            ))}
+          </div>
         </div>
       </section>
 
