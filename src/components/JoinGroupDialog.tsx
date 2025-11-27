@@ -13,16 +13,32 @@ import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+import { getGroup, addMember } from "@/lib/groups";
+
 interface JoinGroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onJoined?: (groupId: string) => void;
 }
 
-const JoinGroupDialog = ({ open, onOpenChange }: JoinGroupDialogProps) => {
+const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps) => {
   const [groupCode, setGroupCode] = useState("");
   const { toast } = useToast();
+  const ensureLocalUserId = () => {
+    try {
+      const key = "swarm_user_id";
+      let id = localStorage.getItem(key);
+      if (!id) {
+        id = "user_" + Math.random().toString(36).slice(2, 9);
+        localStorage.setItem(key, id);
+      }
+      return id;
+    } catch (e) {
+      return "user_anonymous";
+    }
+  };
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!groupCode) {
       toast({
         title: "Missing group code",
@@ -32,14 +48,37 @@ const JoinGroupDialog = ({ open, onOpenChange }: JoinGroupDialogProps) => {
       return;
     }
 
-    // This will integrate with backend later
-    toast({
-      title: "Joined successfully!",
-      description: "You've been added to the group",
-    });
-    
-    setGroupCode("");
-    onOpenChange(false);
+    try {
+      const group = await getGroup(groupCode);
+      if (!group) {
+        toast({
+          title: "Group not found",
+          description: "Please check the group code",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const userId = ensureLocalUserId();
+      await addMember(groupCode, userId);
+
+      toast({
+        title: "Joined successfully!",
+        description: `You've been added to ${group.name}`,
+      });
+
+      setGroupCode("");
+      onOpenChange(false);
+      if (typeof onJoined === "function") onJoined(groupCode);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("joinGroup error", err);
+      toast({
+        title: "Could not join",
+        description: "Something went wrong while joining the group.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

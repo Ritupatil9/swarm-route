@@ -114,8 +114,22 @@ const Dashboard = () => {
       </div>
 
       {/* Dialogs */}
-      <CreateGroupDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
-      <JoinGroupDialog open={showJoinDialog} onOpenChange={setShowJoinDialog} />
+      <CreateGroupDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onCreated={(id) => {
+          setActiveGroup(id);
+          setShowCreateDialog(false);
+        }}
+      />
+      <JoinGroupDialog
+        open={showJoinDialog}
+        onOpenChange={setShowJoinDialog}
+        onJoined={(id: string) => {
+          setActiveGroup(id);
+          setShowJoinDialog(false);
+        }}
+      />
     </div>
   );
 };

@@ -12,18 +12,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createGroup } from "@/lib/groups";
 
 interface CreateGroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (groupId: string) => void;
 }
 
-const CreateGroupDialog = ({ open, onOpenChange }: CreateGroupDialogProps) => {
+const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogProps) => {
   const [groupName, setGroupName] = useState("");
   const [destination, setDestination] = useState("");
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!groupName || !destination) {
       toast({
         title: "Missing information",
@@ -33,15 +36,30 @@ const CreateGroupDialog = ({ open, onOpenChange }: CreateGroupDialogProps) => {
       return;
     }
 
-    // This will integrate with backend later
-    toast({
-      title: "Group created!",
-      description: `${groupName} has been created successfully`,
-    });
-    
-    setGroupName("");
-    setDestination("");
-    onOpenChange(false);
+    setLoading(true);
+    try {
+      // No auth in this app yet — pass null for creatorId
+      const id = await createGroup({ name: groupName, destination, creatorId: null });
+      toast({
+        title: "Group created",
+        description: `${groupName} has been created (id: ${id})`,
+      });
+
+      setGroupName("");
+      setDestination("");
+      onOpenChange(false);
+      if (typeof onCreated === "function") onCreated(id);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("createGroup error", err);
+      toast({
+        title: "Could not create group",
+        description: "Something went wrong while creating the group.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
