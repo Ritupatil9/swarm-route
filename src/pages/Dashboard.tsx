@@ -24,7 +24,7 @@ const Dashboard = () => {
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                 <Navigation className="w-6 h-6 text-white" />
               </div>
-              <span className="font-bold text-xl">MeetMap</span>
+              <span className="font-bold text-xl">TravelSync</span>
             </Link>
             
             <div className="flex items-center gap-3">
