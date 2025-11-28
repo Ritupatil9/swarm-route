@@ -14,10 +14,17 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
+export type DestinationObject = {
+  lat: number;
+  lng: number;
+  label?: string;
+};
+
 export type Group = {
   id?: string;
   name: string;
-  destination?: string;
+  // Destination can be a legacy string or a structured object with coordinates
+  destination?: string | DestinationObject | null;
   createdAt?: any;
   creatorId?: string | null;
   members?: string[];
@@ -25,20 +32,39 @@ export type Group = {
 
 const groupsCol = () => collection(db, "groups");
 
-export async function createGroup(payload: { name: string; destination?: string; creatorId?: string | null }) {
+function generateCode(length = 6) {
+  // simple alphanumeric uppercase code
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < length; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+export async function createGroup(payload: { name: string; destination?: string | DestinationObject; creatorId?: string | null }) {
+  // generate a short join code
+  const code = generateCode(6);
   const ref = await addDoc(groupsCol(), {
     name: payload.name,
     destination: payload.destination ?? null,
     creatorId: payload.creatorId ?? null,
     members: [],
+    code,
     createdAt: serverTimestamp(),
   });
-  return ref.id;
+  return { id: ref.id, code };
 }
 
 export async function getGroup(groupId: string) {
   const d = await getDoc(doc(db, "groups", groupId));
   if (!d.exists()) return null;
+  return { id: d.id, ...(d.data() as DocumentData) } as Group;
+}
+
+export async function getGroupByCode(code: string) {
+  const q = query(groupsCol(), where("code", "==", code));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
   return { id: d.id, ...(d.data() as DocumentData) } as Group;
 }
 

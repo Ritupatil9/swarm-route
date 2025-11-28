@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MapPin, Clock, Navigation2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { subscribeToGroup, Group } from "@/lib/groups";
+import { subscribeToGroup, Group, DestinationObject } from "@/lib/groups";
 
 interface GroupPanelProps {
   groupId: string;
@@ -80,7 +80,19 @@ const GroupPanel = ({ groupId }: GroupPanelProps) => {
           </div>
           <div>
             <h4 className="font-medium text-sm mb-1">Destination</h4>
-            <p className="text-xs text-muted-foreground">{group.destination ?? "Not set"}</p>
+            <p className="text-xs text-muted-foreground">
+              {(() => {
+                const d = group.destination as any;
+                if (!d) return "Not set";
+                // object form
+                if (typeof d === "object" && d.lat && d.lng) {
+                  const obj = d as DestinationObject;
+                  return obj.label ? `${obj.label}` : `${obj.lat.toFixed(5)}, ${obj.lng.toFixed(5)}`;
+                }
+                // legacy string
+                return String(d);
+              })()}
+            </p>
           </div>
         </div>
       </Card>

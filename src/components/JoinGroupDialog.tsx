@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-import { getGroup, addMember } from "@/lib/groups";
+import { getGroup, getGroupByCode, addMember } from "@/lib/groups";
 
 interface JoinGroupDialogProps {
   open: boolean;
@@ -49,7 +49,9 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
     }
 
     try {
-      const group = await getGroup(groupCode);
+      // normalize code (remove hash and whitespace)
+      const normalized = groupCode.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      const group = await getGroupByCode(normalized);
       if (!group) {
         toast({
           title: "Group not found",
@@ -60,7 +62,7 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
       }
 
       const userId = ensureLocalUserId();
-      await addMember(groupCode, userId);
+      await addMember(group.id as string, userId);
 
       toast({
         title: "Joined successfully!",
@@ -69,7 +71,7 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
 
       setGroupCode("");
       onOpenChange(false);
-      if (typeof onJoined === "function") onJoined(groupCode);
+      if (typeof onJoined === "function") onJoined(group.id as string);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("joinGroup error", err);

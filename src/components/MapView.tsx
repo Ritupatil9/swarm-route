@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { MapPin } from "lucide-react";
+// removed candidate UI; keep only map and destination marker
 import { useMap } from "@/contexts/MapContext";
 
 type Props = {
@@ -122,23 +121,6 @@ const MapView = ({ apiKey }: Props) => {
 
         // store map instance for cleanup
         (mapContainer.current as any).__ttMap = map;
-        // add click handler for selecting destination
-        try {
-          map.on("click", async (e: any) => {
-            try {
-              const lng = e.lngLat.lng ?? (e.lngLat as any)[0];
-              const lat = e.lngLat.lat ?? (e.lngLat as any)[1];
-
-              // create a small event on the container we can pick up with React state
-              const ev = new CustomEvent("_tt_map_click", { detail: { lat, lng } });
-              mapContainer.current?.dispatchEvent(ev);
-            } catch (err) {
-              // ignore click handling errors
-            }
-          });
-        } catch (err) {
-          // if SDK doesn't support `on` or pattern differs, ignore
-        }
       } catch (err) {
         // silent fail — map won't render
         // developer can inspect console for `tt` availability
@@ -201,43 +183,9 @@ const MapView = ({ apiKey }: Props) => {
     };
   }, [key]);
 
-  // local candidate state and UI handling
-  const [candidate, setCandidate] = useState<{ lat: number; lng: number; label?: string } | null>(null);
+  // destination marker handling
   const destMarkerRef = useRef<any>(null);
-  const { setDestination, destination, clearDestination } = useMap();
-
-  useEffect(() => {
-    const el = mapContainer.current;
-    if (!el) return;
-
-    const handler = async (e: Event) => {
-      const detail = (e as any).detail as { lat: number; lng: number } | undefined;
-      if (!detail) return;
-      const { lat, lng } = detail;
-
-      // attempt reverse geocode if key present
-      let label: string | undefined;
-      if (key) {
-        try {
-          const res = await fetch(
-            `https://api.tomtom.com/search/2/reverseGeocode/${lat},${lng}.json?key=${key}`
-          );
-          if (res.ok) {
-            const json = await res.json();
-            const addr = json?.addresses?.[0]?.address?.freeformAddress;
-            if (addr) label = addr;
-          }
-        } catch (err) {
-          // ignore reverse geocode errors
-        }
-      }
-
-      setCandidate({ lat, lng, label });
-    };
-
-    el.addEventListener("_tt_map_click", handler);
-    return () => el.removeEventListener("_tt_map_click", handler);
-  }, [key]);
+  const { destination } = useMap();
 
   // when destination in context changes, draw persistent marker
   useEffect(() => {
@@ -282,34 +230,7 @@ const MapView = ({ apiKey }: Props) => {
     <div className="w-full h-full relative bg-muted/20">
       <div ref={mapContainer} className="w-full h-full" />
 
-      {/* Candidate confirm UI */}
-      {candidate && (
-        <div className="absolute right-4 bottom-6 z-50 w-full max-w-sm">
-          <div className="p-4 bg-card border shadow-lg rounded-lg">
-            <div className="text-sm text-muted-foreground mb-2">Set destination</div>
-            <div className="font-medium mb-3">{candidate.label ?? `${candidate.lat.toFixed(5)}, ${candidate.lng.toFixed(5)}`}</div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  // confirm -> persist in context
-                  const dest = { lat: candidate.lat, lng: candidate.lng, label: candidate.label, createdAt: Date.now() };
-                  setDestination(dest);
-                  setCandidate(null);
-                }}
-                className="px-3 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-md w-full"
-              >
-                Set Destination
-              </button>
-              <button
-                onClick={() => setCandidate(null)}
-                className="px-3 py-2 border rounded-md w-full"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* candidate UI removed; destination now set via search input */}
     </div>
   );
 };

@@ -39,10 +39,12 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
     setLoading(true);
     try {
       // No auth in this app yet — pass null for creatorId
-      const id = await createGroup({ name: groupName, destination, creatorId: null });
+      const result = await createGroup({ name: groupName, destination, creatorId: null });
+      const id = result.id;
+      const code = result.code;
       toast({
         title: "Group created",
-        description: `${groupName} has been created (id: ${id})`,
+        description: `${groupName} has been created (code: ${code})`,
       });
 
       setGroupName("");
