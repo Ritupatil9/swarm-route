@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 import { getGroup, getGroupByCode, addMember } from "@/lib/groups";
 
@@ -24,7 +25,11 @@ interface JoinGroupDialogProps {
 const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps) => {
   const [groupCode, setGroupCode] = useState("");
   const { toast } = useToast();
-  const ensureLocalUserId = () => {
+  const { user } = useAuth();
+  
+  const getUserId = () => {
+    // Prefer authenticated user ID, fallback to local storage
+    if (user?.uid) return user.uid;
     try {
       const key = "swarm_user_id";
       let id = localStorage.getItem(key);
@@ -61,7 +66,7 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
         return;
       }
 
-      const userId = ensureLocalUserId();
+      const userId = getUserId();
       await addMember(group.id as string, userId);
 
       toast({

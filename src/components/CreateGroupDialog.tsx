@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,9 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Users } from "lucide-react";
+import { Users, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { createGroup } from "@/lib/groups";
+import { createGroup, DestinationObject } from "@/lib/groups";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -22,15 +23,56 @@ interface CreateGroupDialogProps {
 
 const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogProps) => {
   const [groupName, setGroupName] = useState("");
-  const [destination, setDestination] = useState("");
-  const { toast } = useToast();
+  const [destination, setDestination] = useState<DestinationObject | null>(null);
+  const [destinationQuery, setDestinationQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const key = import.meta.env.VITE_TOMTOM_KEY as string | undefined;
+
+  const searchDestination = async () => {
+    const q = destinationQuery.trim();
+    if (!q || !key) return;
+    setSearching(true);
+    try {
+      const url = `https://api.tomtom.com/search/2/search/${encodeURIComponent(q)}.json?key=${key}&limit=1`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("search failed");
+      const json = await res.json();
+      const r = json?.results?.[0];
+      const lat = r?.position?.lat;
+      const lng = r?.position?.lon;
+      if (typeof lat === "number" && typeof lng === "number") {
+        const title = r?.poi?.name || r?.address?.freeformAddress || q;
+        setDestination({ lat, lng, label: title });
+        toast({
+          title: "Destination set",
+          description: `Destination: ${title}`,
+        });
+      } else {
+        toast({
+          title: "Location not found",
+          description: "Please try a different search term",
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      toast({
+        title: "Search failed",
+        description: "Could not search for location",
+        variant: "destructive",
+      });
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!groupName || !destination) {
       toast({
         title: "Missing information",
-        description: "Please fill in all fields",
+        description: "Please fill in group name and set a destination",
         variant: "destructive",
       });
       return;
@@ -38,8 +80,12 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
 
     setLoading(true);
     try {
-      // No auth in this app yet — pass null for creatorId
-      const result = await createGroup({ name: groupName, destination, creatorId: null });
+      const creatorId = user?.uid || null;
+      const result = await createGroup({ 
+        name: groupName, 
+        destination, 
+        creatorId 
+      });
       const id = result.id;
       const code = result.code;
       toast({
@@ -48,7 +94,8 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
       });
 
       setGroupName("");
-      setDestination("");
+      setDestination(null);
+      setDestinationQuery("");
       onOpenChange(false);
       if (typeof onCreated === "function") onCreated(id);
     } catch (err) {
@@ -63,6 +110,15 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
       setLoading(false);
     }
   };
+
+  // Reset when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setGroupName("");
+      setDestination(null);
+      setDestinationQuery("");
+    }
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,12 +146,32 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
           
           <div className="space-y-2">
             <Label htmlFor="destination">Destination</Label>
-            <Input
-              id="destination"
-              placeholder="Enter destination address"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="destination"
+                placeholder="Search for destination..."
+                value={destinationQuery}
+                onChange={(e) => setDestinationQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") searchDestination();
+                }}
+              />
+              <Button 
+                type="button"
+                size="sm" 
+                onClick={searchDestination} 
+                disabled={searching || !destinationQuery.trim()}
+                variant="outline"
+              >
+                {searching ? "..." : "Search"}
+              </Button>
+            </div>
+            {destination && (
+              <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-md border border-primary/20">
+                <MapPin className="w-4 h-4 text-primary" />
+                <span className="text-sm text-primary font-medium">{destination.label || `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}`}</span>
+              </div>
+            )}
           </div>
         </div>
 
