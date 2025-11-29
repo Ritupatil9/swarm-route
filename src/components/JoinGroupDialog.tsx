@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { getGroup, getGroupByCode, addMember, updateMemberLocation } from "@/lib/groups";
+
+import { getGroup, getGroupByCode, addMember } from "@/lib/groups";
 
 interface JoinGroupDialogProps {
   open: boolean;
@@ -24,7 +24,6 @@ interface JoinGroupDialogProps {
 const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps) => {
   const [groupCode, setGroupCode] = useState("");
   const { toast } = useToast();
-  const { profile } = useAuth();
   const ensureLocalUserId = () => {
     try {
       const key = "swarm_user_id";
@@ -62,7 +61,7 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
         return;
       }
 
-      const userId = ensureLocalUserId();
+      const userId = getUserId();
       await addMember(group.id as string, userId);
 
       // start sharing location for this group (best-effort)

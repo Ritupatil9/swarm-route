@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,53 @@ import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import MapView from "@/components/MapView";
 import LocationSearch from "@/components/LocationSearch";
+<<<<<<< HEAD
+=======
+import { MapProvider, useMap } from "@/contexts/MapContext";
+>>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
 import GroupPanel from "@/components/GroupPanel";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import JoinGroupDialog from "@/components/JoinGroupDialog";
+import { subscribeToGroup, Group, DestinationObject } from "@/lib/groups";
+import { useMemberLocation } from "@/hooks/useMemberLocation";
+
+// Component to sync group destination with map context
+const GroupDestinationSync = ({ groupId }: { groupId: string | null }) => {
+  const { setDestination } = useMap();
+  const [group, setGroup] = useState<Group | null>(null);
+
+  useEffect(() => {
+    if (!groupId) {
+      setGroup(null);
+      return;
+    }
+    const unsub = subscribeToGroup(groupId, (g) => {
+      setGroup(g);
+      // Update map context with group destination
+      if (g?.destination) {
+        const d = g.destination as any;
+        if (typeof d === "object" && d.lat && d.lng) {
+          const dest = d as DestinationObject;
+          setDestination({
+            lat: dest.lat,
+            lng: dest.lng,
+            label: dest.label,
+            createdAt: Date.now(),
+          });
+        }
+      }
+    });
+    return () => unsub();
+  }, [groupId, setDestination]);
+
+  return null;
+};
+
+// Component to track location when in a group
+const LocationTracker = ({ groupId }: { groupId: string | null }) => {
+  useMemberLocation(groupId);
+  return null;
+};
 
 const Dashboard = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -62,11 +106,22 @@ const Dashboard = () => {
 
         {/* Map Area */}
         <main className="flex-1 relative">
+<<<<<<< HEAD
           <MapView groupId={activeGroup} />
           {/* Top-right stack */}
           <div className="absolute top-4 right-4 z-10 flex flex-col gap-3 w-[320px]">
             {!activeGroup && <LocationSearch />}
             <Card className="p-4 bg-card/95 backdrop-blur shadow-lg border-primary/10">
+=======
+          <MapProvider>
+            <GroupDestinationSync groupId={activeGroup} />
+            <LocationTracker groupId={activeGroup} />
+            <MapView groupId={activeGroup} />
+            {/* Top-right stack */}
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-3 w-[320px]">
+              {!activeGroup && <LocationSearch />}
+              <Card className="p-4 bg-card/95 backdrop-blur shadow-lg border-primary/10">
+>>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
