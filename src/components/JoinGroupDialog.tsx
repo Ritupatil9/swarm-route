@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-import { getGroup, getGroupByCode, addMember } from "@/lib/groups";
+import { getGroupByCode, addMember, updateMemberLocation } from "@/lib/groups";
+import { useAuth } from "@/hooks/useAuth";
 
 interface JoinGroupDialogProps {
   open: boolean;
@@ -24,6 +25,7 @@ interface JoinGroupDialogProps {
 const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps) => {
   const [groupCode, setGroupCode] = useState("");
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const ensureLocalUserId = () => {
     try {
       const key = "swarm_user_id";
@@ -61,8 +63,10 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
         return;
       }
 
-      const userId = getUserId();
-      await addMember(group.id as string, userId);
+      const userId = user?.uid || ensureLocalUserId();
+      const displayName = profile?.name || user?.displayName || userId;
+      const avatar = profile?.avatar || null;
+      await addMember(group.id as string, userId, { name: displayName, avatar });
 
       // start sharing location for this group (best-effort)
       try {
@@ -70,18 +74,12 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
           const watchId = navigator.geolocation.watchPosition(
             (pos) => {
               try {
-                updateMemberLocation(group.id as string, userId, {
-                  lat: pos.coords.latitude,
-                  lng: pos.coords.longitude,
-                  name: userId,
-                  avatar:
-                    profile?.avatar ||
-                    (profile?.gender === "Male"
-                      ? "👨"
-                      : profile?.gender === "Female"
-                      ? "👩"
-                      : "🧑"),
-                });
+                updateMemberLocation(
+                  group.id as string,
+                  userId,
+                  { lat: pos.coords.latitude, lng: pos.coords.longitude },
+                  displayName
+                );
               } catch (e) {
                 // ignore
               }

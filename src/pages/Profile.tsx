@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 
 const TRAVEL_TYPES = [
   "Beach person",
@@ -45,6 +46,9 @@ const Profile = () => {
     travelInterests: [] as string[],
     avatar: "🧑",
   });
+  const [favList, setFavList] = useState<string[]>([]);
+  const [newDest, setNewDest] = useState("");
+  const [newInterest, setNewInterest] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -63,6 +67,7 @@ const Profile = () => {
             ? "👩"
             : "🧑"),
       });
+      setFavList(profile.favoriteDestinations || []);
     }
   }, [profile, isEditing]);
 
@@ -96,10 +101,13 @@ const Profile = () => {
     setIsSaving(true);
 
     try {
-      const destinations = formData.favoriteDestinations
-        .split(",")
-        .map((d) => d.trim())
-        .filter((d) => d);
+      const destinations = (favList.length
+        ? favList
+        : formData.favoriteDestinations
+            .split(",")
+            .map((d) => d.trim())
+            .filter((d) => d)
+      ).map((d) => d.trim());
 
       const derivedAvatar =
         formData.avatar ||
@@ -141,12 +149,41 @@ const Profile = () => {
           <Card className="p-6 mb-6">
             <div className="flex items-center gap-6">
               <div className="relative">
-                <Avatar className="w-20 h-20 bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xl font-bold">
-                  {formData.avatar || user.displayName?.charAt(0) || "U"}
+                <Avatar className="w-24 h-24 border shadow-sm bg-muted/40 overflow-hidden flex items-center justify-center">
+                  {(() => {
+                    const avatarVal = formData.avatar || profile?.avatar || user.photoURL || "";
+                    const isUrl = /^(https?:\/\/|data:)/i.test(avatarVal);
+                    if (isUrl) {
+                      return (
+                        <img
+                          src={avatarVal}
+                          alt="Profile avatar"
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      );
+                    }
+                    if (avatarVal) {
+                      // Show provided emoji/text avatar directly
+                      return (
+                        <span className="text-4xl leading-none">
+                          {avatarVal}
+                        </span>
+                      );
+                    }
+                    // Fallback: initials from displayName or user email
+                    const initials = (user.displayName || user.email || "User")
+                      .split(/\s+/)
+                      .slice(0, 2)
+                      .map(part => part.charAt(0).toUpperCase())
+                      .join("");
+                    return (
+                      <span className="text-xl font-semibold text-foreground">
+                        {initials}
+                      </span>
+                    );
+                  })()}
                 </Avatar>
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-2xl drop-shadow-sm">
-                  {formData.avatar}
-                </div>
               </div>
               <div className="flex-1">
                 <div className="text-2xl font-bold">{user.displayName || "User"}</div>
@@ -275,13 +312,49 @@ const Profile = () => {
                 Favorite Destinations
               </label>
               {isEditing ? (
-                <Input
-                  name="favoriteDestinations"
-                  value={formData.favoriteDestinations}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Paris, Tokyo, New York (comma-separated)"
-                  disabled={isSaving}
-                />
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {(favList.length ? favList : (formData.favoriteDestinations || "").split(",").map(d=>d.trim()).filter(Boolean)).map((dest, idx) => (
+                      <button
+                        type="button"
+                        key={`${dest}-${idx}`}
+                        onClick={() => setFavList((prev)=> prev.filter((d)=> d !== dest))}
+                        className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm flex items-center gap-2 hover:bg-primary/15"
+                        disabled={isSaving}
+                        title="Remove"
+                      >
+                        {dest}
+                        <span className="inline-block w-4 h-4 rounded-sm bg-primary/20 text-primary text-xs">×</span>
+                      </button>
+                    ))}
+                    {favList.length === 0 && !formData.favoriteDestinations && (
+                      <span className="text-sm text-muted-foreground">Add places you love visiting</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={newDest}
+                      onChange={(e)=> setNewDest(e.target.value)}
+                      placeholder="Add destination"
+                      disabled={isSaving}
+                    />
+                    <Button
+                      type="button"
+                      onClick={()=>{
+                        const v = newDest.trim();
+                        if (!v) return;
+                        setFavList((prev)=> Array.from(new Set([...prev, v])));
+                        setNewDest("");
+                      }}
+                      disabled={isSaving}
+                    >Add</Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {["Mumbai","Pune","Mahabaleshwar","Goa","Satara"].map((s)=> (
+                      <button key={s} type="button" className="px-2 py-1 rounded border hover:bg-muted" onClick={()=> setFavList((prev)=> Array.from(new Set([...prev, s])))} disabled={isSaving}>{s}</button>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {formData.favoriteDestinations ? (
@@ -326,6 +399,20 @@ const Profile = () => {
                       {interest}
                     </button>
                   ))}
+                  <div className="col-span-2 flex gap-2 mt-2">
+                    <Input
+                      value={newInterest}
+                      onChange={(e)=> setNewInterest(e.target.value)}
+                      placeholder="Add custom interest"
+                      disabled={isSaving}
+                    />
+                    <Button type="button" onClick={()=>{
+                      const v = newInterest.trim();
+                      if (!v) return;
+                      setFormData((prev)=> ({...prev, travelInterests: Array.from(new Set([...prev.travelInterests, v])) }));
+                      setNewInterest("");
+                    }} disabled={isSaving}>Add</Button>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2">

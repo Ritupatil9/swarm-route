@@ -21,11 +21,13 @@ export type DestinationObject = {
   label?: string;
 };
 
+// Simple member location type used by UI
 export type MemberLocation = {
+  id: string; // convenience id (same as userId)
   userId: string;
   lat: number;
   lng: number;
-  timestamp: number;
+  timestamp?: number;
   name?: string;
 };
 
@@ -38,6 +40,13 @@ export type Group = {
   creatorId?: string | null;
   members?: string[];
   code?: string;
+};
+
+export type MemberProfile = {
+  userId: string;
+  name?: string | null;
+  avatar?: string | null;
+  joinedAt?: any;
 };
 
 const groupsCol = () => collection(db, "groups");
@@ -100,81 +109,88 @@ export async function listGroupsByCreator(creatorId: string) {
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) } as Group));
 }
 
-export async function addMember(groupId: string, userId: string) {
-  const ref = doc(db, "groups", groupId);
-  await updateDoc(ref, {
-    members: arrayUnion(userId),
-  });
-}
-
-<<<<<<< HEAD
-export async function updateMemberLocation(
+// Add or update a member profile and ensure membership without duplication
+export async function addMember(
   groupId: string,
   userId: string,
-  payload: { lat: number; lng: number; name?: string; description?: string; avatar?: string }
+  opts?: { name?: string; avatar?: string }
 ) {
-  const ref = doc(db, "groups", groupId, "members", userId);
+  const groupRef = doc(db, "groups", groupId);
+  // Ensure userId is present in group.members (arrayUnion deduplicates)
+  await updateDoc(groupRef, { members: arrayUnion(userId) });
+
+  // Store/refresh member profile in a subcollection
+  const memberRef = doc(db, "groups", groupId, "members", userId);
   await setDoc(
-    ref,
+    memberRef,
     {
-      lat: payload.lat,
-      lng: payload.lng,
-      name: payload.name ?? userId,
-      description: payload.description ?? null,
-      avatar: payload.avatar ?? null,
-      updatedAt: serverTimestamp(),
-=======
-// Update member location in real-time
+      userId,
+      name: opts?.name || userId,
+      avatar: opts?.avatar || null,
+      joinedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
 export async function updateMemberLocation(
   groupId: string,
   userId: string,
   location: { lat: number; lng: number },
   userName?: string
 ) {
-  const locationRef = doc(db, "groups", groupId, "memberLocations", userId);
+  const ref = doc(db, "groups", groupId, "memberLocations", userId);
   await setDoc(
-    locationRef,
+    ref,
     {
       userId,
       lat: location.lat,
       lng: location.lng,
       timestamp: serverTimestamp(),
       name: userName || userId,
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
     },
     { merge: true }
   );
 }
 
-<<<<<<< HEAD
-export function subscribeToMemberLocations(
-  groupId: string,
-  cb: (members: Array<{ id: string } & DocumentData>) => void
-) {
-  const col = collection(db, "groups", groupId, "members");
-  return onSnapshot(col, (snap) => {
-    const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) }));
-    cb(items);
-=======
-// Subscribe to all member locations in a group
 export function subscribeToMemberLocations(
   groupId: string,
   cb: (locations: MemberLocation[]) => void
 ) {
-  const locationsRef = collection(db, "groups", groupId, "memberLocations");
-  return onSnapshot(locationsRef, (snapshot) => {
-    const locations: MemberLocation[] = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      locations.push({
-        userId: data.userId || doc.id,
-        lat: data.lat,
-        lng: data.lng,
+  const colRef = collection(db, "groups", groupId, "memberLocations");
+  return onSnapshot(colRef, (snap) => {
+    const items: MemberLocation[] = snap.docs.map((d) => {
+      const data = d.data() as DocumentData;
+      return {
+        id: d.id,
+        userId: (data.userId as string) || d.id,
+        lat: Number(data.lat),
+        lng: Number(data.lng),
         timestamp: data.timestamp?.toMillis?.() || data.timestamp || Date.now(),
-        name: data.name,
-      });
+        name: data.name as string | undefined,
+      };
     });
-    cb(locations);
+    cb(items);
+  });
+}
+
+// Subscribe to member profiles for a group
+export function subscribeToMembers(
+  groupId: string,
+  cb: (profiles: MemberProfile[]) => void
+) {
+  const colRef = collection(db, "groups", groupId, "members");
+  return onSnapshot(colRef, (snap) => {
+    const items: MemberProfile[] = snap.docs.map((d) => {
+      const data = d.data() as DocumentData;
+      return {
+        userId: (data.userId as string) || d.id,
+        name: (data.name as string) ?? null,
+        avatar: (data.avatar as string) ?? null,
+        joinedAt: data.joinedAt,
+      };
+    });
+    cb(items);
   });
 }
 
@@ -184,8 +200,5 @@ export async function updateGroupDestination(
   destination: DestinationObject
 ) {
   const ref = doc(db, "groups", groupId);
-  await updateDoc(ref, {
-    destination,
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
-  });
+  await updateDoc(ref, { destination });
 }

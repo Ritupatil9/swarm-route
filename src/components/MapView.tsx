@@ -1,27 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 // removed candidate UI; keep only map and destination marker
 import { useMap } from "@/contexts/MapContext";
-<<<<<<< HEAD
-import { subscribeToMemberLocations, subscribeToGroup, subscribeToGroups } from "@/lib/groups";
-=======
-import { useMemberLocations, MemberLocation } from "@/hooks/useMemberLocation";
+import { subscribeToMemberLocations, subscribeToGroup, subscribeToGroups, subscribeToMembers } from "@/lib/groups";
+import { logTripStart, logTripComplete } from "@/lib/trips";
 import { useAuth } from "@/hooks/useAuth";
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
+import { useMemberLocations } from "@/hooks/useMemberLocation";
 
 type Props = {
   /** TomTom API key. If not provided, `VITE_TOMTOM_KEY` will be used. */
   apiKey?: string;
-<<<<<<< HEAD
-=======
-  /** Group ID to show member locations */
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
   groupId?: string | null;
 };
 
 const TOMTOM_CSS = "https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.22.0/maps/maps.css";
 const TOMTOM_JS = "https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.22.0/maps/maps-web.min.js";
 
-<<<<<<< HEAD
 // Helper function to generate unique avatar SVG based on user ID
 const generateUniqueAvatar = (userId: string, size = 40) => {
   // Hash user ID to get consistent colors/features
@@ -104,9 +97,6 @@ const generateUniqueAvatar = (userId: string, size = 40) => {
     </svg>
   `;
 };
-
-=======
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
 const MapView = ({ apiKey, groupId }: Props) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   // last known user location (even if not in any group)
@@ -131,8 +121,58 @@ const MapView = ({ apiKey, groupId }: Props) => {
   const routeSourceIdRef = useRef<string | null>(null);
   const memberMarkersRef = useRef<Map<string, any>>(new Map());
   const memberRoutesRef = useRef<Map<string, { layerId: string; sourceId: string; outlineLayerId?: string }>>(new Map());
+  const memberAvatarsRef = useRef<Map<string, string | null>>(new Map());
   const currentPosForRouteRef = useRef<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const { destination } = useMap();
+  const auth = useAuth();
+  const activeTripRef = useRef<{ id: string | null }>({ id: null });
+  const tripEtaRef = useRef<{ seconds?: number; meters?: number; label?: string }>({});
+  // Ensure layers are added only after the map style loads
+  const onMapReady = (cb: () => void) => {
+    const map = (mapContainer.current as any)?.__ttMap;
+    if (!map) return;
+    try {
+      const isLoaded = typeof map.isStyleLoaded === "function" ? map.isStyleLoaded() : (map.loaded?.() ?? false);
+      if (isLoaded) {
+        cb();
+      } else if (typeof map.once === "function") {
+        map.once("load", cb);
+      } else if (typeof map.on === "function") {
+        map.on("load", cb);
+      } else {
+        // last resort: retry shortly
+        setTimeout(cb, 250);
+      }
+    } catch {
+      setTimeout(cb, 250);
+    }
+  };
+  // helpers for fallback location
+  const setFromMapCenter = () => {
+    const map = (mapContainer.current as any)?.__ttMap;
+    if (!map) return;
+    try {
+      const c = map.getCenter();
+      if (c) {
+        currentPosForRouteRef.current.lat = c.lat;
+        currentPosForRouteRef.current.lng = c.lng;
+        setUserPos({ lat: c.lat, lng: c.lng });
+      }
+    } catch {}
+  };
+  const setFromLastKnown = () => {
+    try {
+      const raw = localStorage.getItem("swarm_last_pos");
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p?.lat != null && p?.lng != null) {
+          currentPosForRouteRef.current.lat = p.lat;
+          currentPosForRouteRef.current.lng = p.lng;
+          setUserPos({ lat: p.lat, lng: p.lng });
+        }
+      }
+    } catch {}
+  };
 
   // Helper function to draw route from a location to destination (Uber-like style)
   const drawRoute = async (
@@ -243,16 +283,17 @@ const MapView = ({ apiKey, groupId }: Props) => {
           }
           memberRoutesRef.current.set(routeId, { layerId, sourceId, outlineLayerId });
         } else {
-          // Subtle route for other members
+          // Blue route for other members with a thinner style
           if (map.getLayer && !map.getLayer(layerId)) {
             map.addLayer({
               id: layerId,
               type: "line",
               source: sourceId,
+              layout: { "line-cap": "round", "line-join": "round" },
               paint: {
-                "line-color": "#60A5FA", // Lighter blue
-                "line-width": 3,
-                "line-opacity": 0.5,
+                "line-color": "#2563eb", // Blue
+                "line-width": 4,
+                "line-opacity": 0.9,
               },
             });
           }
@@ -269,26 +310,90 @@ const MapView = ({ apiKey, groupId }: Props) => {
     }
   };
 
+  // Realistic avatar element builder (photo URL > emoji/text > generated dicebear > SVG fallback)
+  const buildAvatarEl = (seed: string, avatarRaw: string | null | undefined, size: number, self: boolean) => {
+    const wrapper = document.createElement("div");
+    wrapper.style.width = `${size}px`;
+    wrapper.style.height = `${size}px`;
+    wrapper.style.borderRadius = "50%";
+    wrapper.style.overflow = "hidden";
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.justifyContent = "center";
+    wrapper.style.position = "relative";
+    wrapper.style.pointerEvents = "none";
+    wrapper.style.background = "#ffffff"; // flat white background
+    wrapper.style.border = self ? "3px solid #2563eb" : "3px solid #e2e8f0"; // ring color
+    wrapper.style.boxShadow = "0 2px 4px rgba(0,0,0,0.25)";
+    wrapper.setAttribute("aria-label", "map avatar");
+    wrapper.setAttribute("role", "img");
 
-  // create a custom marker element with unique avatar
+    const raw = avatarRaw?.trim() || "";
+    const isUrl = /^(https?:\/\/|data:)/i.test(raw);
+    if (isUrl) {
+      const img = document.createElement("img");
+      img.src = raw;
+      img.alt = "avatar image";
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.objectFit = "cover";
+      img.referrerPolicy = "no-referrer";
+      wrapper.appendChild(img);
+    } else if (raw && raw.length <= 4) {
+      const span = document.createElement("span");
+      span.textContent = raw;
+      span.style.fontSize = `${Math.round(size * 0.55)}px`;
+      span.style.lineHeight = `${size}px`;
+      span.style.textAlign = "center";
+      span.style.userSelect = "none";
+      wrapper.appendChild(span);
+    } else {
+      // Generate deterministic Dicebear avatar (transparent background)
+      try {
+        const diceSeed = encodeURIComponent(seed.slice(0, 40));
+        const url = `https://api.dicebear.com/9.x/avataaars/svg?seed=${diceSeed}&radius=0&backgroundType=none&mouth=smile&eyes=default&top=shortHairShortFlat`;
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "generated avatar";
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.objectFit = "cover";
+        wrapper.appendChild(img);
+      } catch (e) {
+        // Fallback unique SVG
+        wrapper.innerHTML = generateUniqueAvatar(seed, size);
+      }
+    }
+
+    // Status dot for current user
+    if (self) {
+      const dot = document.createElement("div");
+      dot.style.position = "absolute";
+      dot.style.bottom = "4px";
+      dot.style.right = "4px";
+      dot.style.width = `${Math.round(size * 0.22)}px`;
+      dot.style.height = `${Math.round(size * 0.22)}px`;
+      dot.style.borderRadius = "50%";
+      dot.style.background = "#10b981"; // green
+      dot.style.border = "2px solid #ffffff";
+      dot.style.boxShadow = "0 0 0 2px rgba(0,0,0,0.08)";
+      wrapper.appendChild(dot);
+    }
+    return wrapper;
+  };
+
+  // Self marker builder
   const createUserMarker = (size = 44) => {
-    // Get user ID from localStorage
     let userId = "user_self";
-    try {
-      userId = localStorage.getItem("swarm_user_id") || "user_self";
-    } catch (e) {}
-    
-    const el = document.createElement("div");
-    el.style.minWidth = `${size}px`;
-    el.style.height = `${size}px`;
-    el.style.display = "flex";
-    el.style.alignItems = "center";
-    el.style.justifyContent = "center";
-    el.style.borderRadius = "999px";
-    el.style.pointerEvents = "none";
-    el.style.boxShadow = "0 0 0 3px rgba(255,255,255,0.95), 0 10px 16px rgba(15,23,42,0.4)";
-    el.innerHTML = generateUniqueAvatar(userId, size);
-    return el;
+    try { userId = localStorage.getItem("swarm_user_id") || "user_self"; } catch {}
+    const avatarRaw = (auth.profile?.avatar as string | undefined) || (auth.user?.photoURL as string | undefined) || "";
+    return buildAvatarEl(userId, avatarRaw, size, true);
+  };
+
+  // Member marker builder
+  const createMemberMarkerEl = (userId: string, size = 44) => {
+    const avatarRaw = memberAvatarsRef.current.get(userId) || "";
+    return buildAvatarEl(userId, avatarRaw, size, false);
   };
 
   useEffect(() => {
@@ -324,12 +429,8 @@ const MapView = ({ apiKey, groupId }: Props) => {
             const lng = pos.coords.longitude;
             initialPosRef.lat = lat;
             initialPosRef.lng = lng;
-<<<<<<< HEAD
             setUserPos({ lat, lng });
-=======
-            currentPosForRouteRef.current.lat = lat;
-            currentPosForRouteRef.current.lng = lng;
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
+            try { localStorage.setItem("swarm_last_pos", JSON.stringify({ lat, lng, t: Date.now() })); } catch {}
 
             // if map has already been initialized, update marker position (don't pan to avoid constant movement)
             const map = (mapContainer.current as any)?.__ttMap;
@@ -427,6 +528,21 @@ const MapView = ({ apiKey, groupId }: Props) => {
       document.body.appendChild(script);
     }
 
+    // As a fallback, try to restore last known position immediately if geolocation is blocked
+    try {
+      if (initialPosRef.lat == null || initialPosRef.lng == null) {
+        const raw = localStorage.getItem("swarm_last_pos");
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (p?.lat != null && p?.lng != null) {
+            initialPosRef.lat = p.lat;
+            initialPosRef.lng = p.lng;
+            setUserPos({ lat: p.lat, lng: p.lng });
+          }
+        }
+      }
+    } catch {}
+
     return () => {
       isMounted = false;
       // remove map instance
@@ -451,7 +567,6 @@ const MapView = ({ apiKey, groupId }: Props) => {
     };
   }, [key]);
 
-<<<<<<< HEAD
   // subscribe to group document to get destination (if set on group)
   const [groupDestination, setGroupDestination] = useState<any | null>(null);
   useEffect(() => {
@@ -466,31 +581,7 @@ const MapView = ({ apiKey, groupId }: Props) => {
     return () => unsub();
   }, [groupId]);
 
-  // expose map-wide destination from context for route drawing
-  const { destination } = useMap();
-=======
-  // Helper to create member marker
-  const createMemberMarker = (name?: string, isCurrentUser = false) => {
-    const el = document.createElement("div");
-    el.style.width = `32px`;
-    el.style.height = `32px`;
-    el.style.display = "flex";
-    el.style.alignItems = "center";
-    el.style.justifyContent = "center";
-    el.style.pointerEvents = "none";
-    const color = isCurrentUser ? "#10B981" : "#3B82F6"; // Green for current user, blue for others
-    el.innerHTML = `
-      <svg width="32" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 0C7.029 0 3 4.03 3 9.01c0 6.075 8.142 15.558 8.59 16.04.19.208.45.32.71.32.26 0 .52-.112.71-.32.448-.482 8.59-9.965 8.59-16.04C21 4.03 16.971 0 12 0z" fill="${color}" stroke="#FFFFFF" stroke-width="1.5"/>
-        <circle cx="12" cy="9" r="3.25" fill="#FFFFFF" stroke="${color}" stroke-width="0.75"/>
-      </svg>
-    `;
-    if (name) {
-      el.title = name;
-    }
-    return el;
-  };
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
+  // note: `destination` is already obtained earlier from MapContext; do not redeclare here
 
   // member markers + routes (supports single group or all groups when groupId is undefined)
   useEffect(() => {
@@ -514,18 +605,7 @@ const MapView = ({ apiKey, groupId }: Props) => {
           // marker
           let marker = memberMarkers.get(id);
           if (!marker) {
-            const el = document.createElement("div");
-            el.style.minWidth = "44px";
-            el.style.height = "44px";
-            el.style.display = "flex";
-            el.style.alignItems = "center";
-            el.style.justifyContent = "center";
-            el.style.borderRadius = "999px";
-            el.style.pointerEvents = "none";
-            el.style.boxShadow = "0 0 0 3px rgba(255,255,255,0.95), 0 10px 16px rgba(15,23,42,0.4)";
-
-            // Generate unique avatar based on member ID (each user gets different colors/features)
-            el.innerHTML = generateUniqueAvatar(id, 40);
+            const el = createMemberMarkerEl(id, 44);
             marker = new (window as any).tt.Marker({ element: el })
               .setLngLat([lng, lat])
               .addTo(map);
@@ -551,48 +631,41 @@ const MapView = ({ apiKey, groupId }: Props) => {
 
             const drawGeoJSON = (coords: Array<[number, number]>) => {
               const line = { type: "Feature", geometry: { type: "LineString", coordinates: coords } };
-              try {
-                if (map.getLayer(`layer-${routeId}`)) {
-                  try { map.removeLayer(`layer-${routeId}`); } catch (e) { }
-                }
-                if (map.getLayer(`layer-outline-${routeId}`)) {
-                  try { map.removeLayer(`layer-outline-${routeId}`); } catch (e) { }
-                }
-                if (map.getSource(srcId)) {
-                  try { map.removeSource(srcId); } catch (e) { }
-                }
-                map.addSource(srcId, { type: "geojson", data: { type: "FeatureCollection", features: [line] } });
-                // outline for contrast
-                map.addLayer({
-                  id: `layer-outline-${routeId}`,
-                  type: "line",
-                  source: srcId,
-                  layout: { "line-cap": "round", "line-join": "round" },
-                  paint: { "line-color": "#185ADB", "line-width": 8, "line-opacity": 0.75 }
-                });
-                // inner blue route
-                map.addLayer({
-                  id: `layer-${routeId}`,
-                  type: "line",
-                  source: srcId,
-                  layout: { "line-cap": "round", "line-join": "round" },
-                  paint: { "line-color": "#1A73E8", "line-width": 5, "line-opacity": 1 }
-                });
-
-                // fit map to route bounds for a better view
+              onMapReady(() => {
                 try {
-                  const lats = coords.map((c) => c[1]);
-                  const lngs = coords.map((c) => c[0]);
-                  const south = Math.min(...lats);
-                  const north = Math.max(...lats);
-                  const west = Math.min(...lngs);
-                  const east = Math.max(...lngs);
-                  map.fitBounds([[west, south], [east, north]], { padding: 60, maxZoom: 16 });
-                } catch (e) { }
-                memberRouteIds.add(routeId);
-              } catch (e) {
-                // ignore draw errors
-              }
+                  if (map.getLayer(`layer-${routeId}`)) {
+                    try { map.removeLayer(`layer-${routeId}`); } catch (e) { }
+                  }
+                  if (map.getLayer(`layer-outline-${routeId}`)) {
+                    try { map.removeLayer(`layer-outline-${routeId}`); } catch (e) { }
+                  }
+                  if (map.getSource(srcId)) {
+                    try { map.removeSource(srcId); } catch (e) { }
+                  }
+                  map.addSource(srcId, { type: "geojson", data: { type: "FeatureCollection", features: [line] } });
+                  // outline for contrast
+                  map.addLayer({
+                    id: `layer-outline-${routeId}`,
+                    type: "line",
+                    source: srcId,
+                    layout: { "line-cap": "round", "line-join": "round" },
+                    paint: { "line-color": "#185ADB", "line-width": 8, "line-opacity": 0.75 }
+                  });
+                  // inner blue route
+                  map.addLayer({
+                    id: `layer-${routeId}`,
+                    type: "line",
+                    source: srcId,
+                    layout: { "line-cap": "round", "line-join": "round" },
+                    paint: { "line-color": "#1A73E8", "line-width": 5, "line-opacity": 1 }
+                  });
+
+                  // Avoid fitting bounds for every member route to keep map stable
+                  memberRouteIds.add(routeId);
+                } catch (e) {
+                  // ignore draw errors
+                }
+              });
             };
 
             const tryDraw = async () => {
@@ -703,6 +776,13 @@ const MapView = ({ apiKey, groupId }: Props) => {
     if (groupId) {
       const unsub = subscribeToMemberLocations(groupId, handleMembers);
       subscriptions.push(unsub);
+      // subscribe to member profiles to get avatars
+      const unsubProfiles = subscribeToMembers(groupId, (profiles) => {
+        profiles.forEach((p) => {
+          memberAvatarsRef.current.set(p.userId, p.avatar ?? null);
+        });
+      });
+      subscriptions.push(unsubProfiles);
     } else {
       // No specific group: subscribe to all groups and then each group's members
       unsubAll = subscribeToGroups((groups) => {
@@ -747,7 +827,8 @@ const MapView = ({ apiKey, groupId }: Props) => {
   // location and the active destination, even if there are no group members.
   useEffect(() => {
     const map = (mapContainer.current as any)?.__ttMap;
-    if (!map || !key) return;
+    // Allow straight-line fallback even without a TomTom key
+    if (!map) return;
 
     const dest = (groupDestination as any) ?? (destination as any);
     const user = userPos;
@@ -764,50 +845,56 @@ const MapView = ({ apiKey, groupId }: Props) => {
 
     const drawGeoJSON = (coords: Array<[number, number]>) => {
       const line = { type: "Feature", geometry: { type: "LineString", coordinates: coords } };
-      try {
-        if (map.getLayer(`layer-${routeId}`)) {
-          try { map.removeLayer(`layer-${routeId}`); } catch (e) {}
-        }
-        if (map.getLayer(`layer-outline-${routeId}`)) {
-          try { map.removeLayer(`layer-outline-${routeId}`); } catch (e) {}
-        }
-        if (map.getSource(srcId)) {
-          try { map.removeSource(srcId); } catch (e) {}
-        }
-        map.addSource(srcId, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [line] },
-        });
-        // outline
-        map.addLayer({
-          id: `layer-outline-${routeId}`,
-          type: "line",
-          source: srcId,
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#1e3a8a", "line-width": 8, "line-opacity": 0.6 },
-        });
-        // main blue route
-        map.addLayer({
-          id: `layer-${routeId}`,
-          type: "line",
-          source: srcId,
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#2563eb", "line-width": 5, "line-opacity": 1 },
-        });
-
-        // zoom to route
+      onMapReady(() => {
         try {
-          const lats = coords.map((c) => c[1]);
-          const lngs = coords.map((c) => c[0]);
-          const south = Math.min(...lats);
-          const north = Math.max(...lats);
-          const west = Math.min(...lngs);
-          const east = Math.max(...lngs);
-          map.fitBounds([[west, south], [east, north]], { padding: 60, maxZoom: 16 });
-        } catch (e) {}
-      } catch (e) {
-        // ignore draw errors
-      }
+          if (map.getLayer(`layer-${routeId}`)) {
+            try { map.removeLayer(`layer-${routeId}`); } catch (e) {}
+          }
+          if (map.getLayer(`layer-outline-${routeId}`)) {
+            try { map.removeLayer(`layer-outline-${routeId}`); } catch (e) {}
+          }
+          if (map.getSource(srcId)) {
+            try { map.removeSource(srcId); } catch (e) {}
+          }
+          map.addSource(srcId, {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [line] },
+          });
+          // outline
+          map.addLayer({
+            id: `layer-outline-${routeId}`,
+            type: "line",
+            source: srcId,
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": "#1e3a8a", "line-width": 8, "line-opacity": 0.6 },
+          });
+          // main blue route
+          map.addLayer({
+            id: `layer-${routeId}`,
+            type: "line",
+            source: srcId,
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": "#2563eb", "line-width": 5, "line-opacity": 1 },
+          });
+
+          // Zoom once on first self route to avoid jitter
+          try {
+            const state = ((mapContainer.current as any).__selfFitDone ||= { done: false });
+            if (!state.done) {
+              const lats = coords.map((c) => c[1]);
+              const lngs = coords.map((c) => c[0]);
+              const south = Math.min(...lats);
+              const north = Math.max(...lats);
+              const west = Math.min(...lngs);
+              const east = Math.max(...lngs);
+              map.fitBounds([[west, south], [east, north]], { padding: 60, maxZoom: 16 });
+              state.done = true;
+            }
+          } catch (e) {}
+        } catch (e) {
+          // ignore draw errors
+        }
+      });
     };
 
     const fetchAndDraw = async () => {
@@ -818,73 +905,114 @@ const MapView = ({ apiKey, groupId }: Props) => {
         return;
       }
 
-      // try TomTom SDK
-      try {
-        const tt = (window as any).tt;
-        if (tt && tt.services && typeof tt.services.calculateRoute === "function") {
-          const req = {
-            key,
-            locations: [`${lat},${lng}`, `${dest.lat},${dest.lng}`],
-            travelMode: "car",
-            alternatives: false,
-            computeBestOrder: false,
-          };
-          const res = await tt.services.calculateRoute(req);
-          const coords: Array<[number, number]> = [];
-          try {
-            const route = res?.routes?.[0];
-            if (route?.legs) {
-              route.legs.forEach((leg: any) => {
-                if (leg && leg.points) {
-                  leg.points.forEach((p: any) =>
-                    coords.push([p.longitude ?? p.lng ?? p.lon ?? p[1], p.latitude ?? p.lat ?? p[0]])
-                  );
-                }
-              });
+      // try TomTom SDK if key available
+      if (key) {
+        try {
+          const tt = (window as any).tt;
+          if (tt && tt.services && typeof tt.services.calculateRoute === "function") {
+            const req = {
+              key,
+              locations: [`${lat},${lng}`, `${dest.lat},${dest.lng}`],
+              travelMode: "car",
+              alternatives: false,
+              computeBestOrder: false,
+            };
+            const res = await tt.services.calculateRoute(req);
+            const coords: Array<[number, number]> = [];
+            try {
+              const route = res?.routes?.[0];
+              if (route?.legs) {
+                route.legs.forEach((leg: any) => {
+                  if (leg && leg.points) {
+                    leg.points.forEach((p: any) =>
+                      coords.push([p.longitude ?? p.lng ?? p.lon ?? p[1], p.latitude ?? p.lat ?? p[0]])
+                    );
+                  }
+                });
+              }
+              // Extract ETA/distance from SDK response
+              const summary = route?.summary || res?.summary;
+              if (summary) {
+                const seconds = Number(summary.travelTimeInSeconds ?? summary.travelTime);
+                const meters = Number(summary.lengthInMeters ?? summary.length);
+                tripEtaRef.current.seconds = isFinite(seconds) ? seconds : undefined;
+                tripEtaRef.current.meters = isFinite(meters) ? meters : undefined;
+                tripEtaRef.current.label = dest.label;
+              }
+            } catch (e) {}
+            if (coords.length) {
+              mapState.routes.set(cacheKey, coords);
+              drawGeoJSON(coords);
+              return;
             }
-          } catch (e) {}
-          if (coords.length) {
-            mapState.routes.set(cacheKey, coords);
-            drawGeoJSON(coords);
-            return;
           }
+        } catch (e) {
+          // ignore SDK errors
         }
-      } catch (e) {
-        // ignore SDK errors
       }
 
       // fallback REST call
-      try {
-        const url = `https://api.tomtom.com/routing/1/calculateRoute/${lat},${lng}:${dest.lat},${dest.lng}/json?key=${key}&routeType=fastest&traffic=false`;
-        const r = await fetch(url);
-        if (r.ok) {
-          const j = await r.json();
-          const coords: Array<[number, number]> = [];
-          try {
-            const route = j?.routes?.[0];
-            if (route && route.legs) {
-              route.legs.forEach((leg: any) => {
-                if (leg.points) {
-                  leg.points.forEach((p: any) => coords.push([p.lon ?? p[1], p.lat ?? p[0]]));
-                }
-              });
+      if (key) {
+        try {
+          const url = `https://api.tomtom.com/routing/1/calculateRoute/${lat},${lng}:${dest.lat},${dest.lng}/json?key=${key}&routeType=fastest&traffic=false`;
+          const r = await fetch(url);
+          if (r.ok) {
+            const j = await r.json();
+            const coords: Array<[number, number]> = [];
+            try {
+              const route = j?.routes?.[0];
+              if (route && route.legs) {
+                route.legs.forEach((leg: any) => {
+                  if (leg.points) {
+                    leg.points.forEach((p: any) => coords.push([p.lon ?? p[1], p.lat ?? p[0]]));
+                  }
+                });
+              }
+              // Extract ETA/distance from REST response
+              const summary = route?.summary;
+              if (summary) {
+                const seconds = Number(summary.travelTimeInSeconds ?? summary.travelTime);
+                const meters = Number(summary.lengthInMeters ?? summary.length);
+                tripEtaRef.current.seconds = isFinite(seconds) ? seconds : undefined;
+                tripEtaRef.current.meters = isFinite(meters) ? meters : undefined;
+                tripEtaRef.current.label = dest.label;
+              }
+            } catch (e) {}
+            if (coords.length) {
+              mapState.routes.set(cacheKey, coords);
+              drawGeoJSON(coords);
+              return;
             }
-          } catch (e) {}
-          if (coords.length) {
-            mapState.routes.set(cacheKey, coords);
-            drawGeoJSON(coords);
-            return;
           }
+        } catch (e) {
+          // ignore REST errors
         }
-      } catch (e) {
-        // ignore REST errors
       }
 
       // straight-line fallback
       drawGeoJSON([[lng, lat], [dest.lng, dest.lat]]);
     };
 
-    fetchAndDraw();
+    (async () => {
+      // Auto-start trip when first routing attempt is made and no active trip
+      try {
+        const uid = auth.user?.uid || localStorage.getItem("swarm_user_id") || "";
+        // restore active trip from localStorage if available
+        const tripKey = uid ? `swarm_active_trip_${uid}_${groupId ?? 'none'}` : '';
+        if (tripKey && !activeTripRef.current.id) {
+          const storedId = localStorage.getItem(tripKey);
+          if (storedId) {
+            activeTripRef.current.id = storedId;
+          }
+        }
+        if (uid && !activeTripRef.current.id) {
+          const tripId = await logTripStart(uid, groupId ?? null, { lat: dest.lat, lng: dest.lng, label: dest.label });
+          activeTripRef.current.id = tripId;
+          try { if (tripKey) localStorage.setItem(tripKey, tripId); } catch {}
+        }
+      } catch (e) { }
+      await fetchAndDraw();
+    })();
 
     return () => {
       try {
@@ -896,9 +1024,50 @@ const MapView = ({ apiKey, groupId }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupDestination, destination, key, userPos.lat, userPos.lng]);
 
-  // destination marker handling
-  const destMarkerRef = useRef<any>(null);
+  // Detect arrival near destination and auto-complete active trip
+  useEffect(() => {
+    const dest = (groupDestination as any) ?? (destination as any);
+    if (!dest || dest.lat == null || dest.lng == null) return;
+    if (userPos.lat == null || userPos.lng == null) return;
 
+    // Haversine distance in meters
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const R = 6371000; // Earth radius in meters
+    const dLat = toRad(dest.lat - (userPos.lat as number));
+    const dLng = toRad(dest.lng - (userPos.lng as number));
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(userPos.lat as number)) * Math.cos(toRad(dest.lat)) * Math.sin(dLng / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    const ARRIVAL_THRESHOLD_METERS = 50; // consider arrived within 50m
+    if (distance <= ARRIVAL_THRESHOLD_METERS && activeTripRef.current.id) {
+      (async () => {
+        try {
+          await logTripComplete(activeTripRef.current.id as string);
+        } catch (e) { }
+        // clear active trip and persisted key
+        const uid = auth.user?.uid || localStorage.getItem("swarm_user_id") || "";
+        const tripKey = uid ? `swarm_active_trip_${uid}_${groupId ?? 'none'}` : '';
+        activeTripRef.current.id = null;
+        try { if (tripKey) localStorage.removeItem(tripKey); } catch {}
+      })();
+    }
+  }, [groupDestination, destination, userPos.lat, userPos.lng]);
+
+  // On mount, try to restore active trip from localStorage to keep state across refresh
+  useEffect(() => {
+    const uid = auth.user?.uid || localStorage.getItem("swarm_user_id") || "";
+    const tripKey = uid ? `swarm_active_trip_${uid}_${groupId ?? 'none'}` : '';
+    if (tripKey && !activeTripRef.current.id) {
+      try {
+        const storedId = localStorage.getItem(tripKey);
+        if (storedId) activeTripRef.current.id = storedId;
+      } catch {}
+    }
+  }, [auth.user?.uid, groupId]);
+
+  // destination marker handling
+  // destination marker handling (destMarkerRef is declared earlier)
 
   // when destination (group or context) changes, draw persistent marker
   useEffect(() => {
@@ -932,117 +1101,53 @@ const MapView = ({ apiKey, groupId }: Props) => {
         destMarkerRef.current = new (window as any).tt.Marker({ element: el })
           .setLngLat([dest.lng, dest.lat])
           .addTo(map);
-<<<<<<< HEAD
-        // center map toward destination
-        map.panTo([dest.lng, dest.lat]);
-=======
-        // Only center map on destination if it's the first time setting destination
-        // Don't pan constantly - let user control the map view
-        // map.panTo([destination.lng, destination.lat]); // Removed to prevent constant movement
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
+        // Do not pan to destination automatically to keep map stable
       } catch (e) {
         // ignore marker draw errors
       }
       // Route will be drawn by member routes effect when member locations are available
     }
-<<<<<<< HEAD
   }, [destination, groupDestination]);
-=======
-  }, [destination, key]);
-
-  // Handle member location markers and routes
-  const { user } = useAuth();
-  useEffect(() => {
-    const map = (mapContainer.current as any)?.__ttMap;
-    if (!map || !(window as any).tt) return;
-
-    // Get current user ID (prefer auth user, fallback to local storage)
-    const currentUserId = user?.uid || localStorage.getItem("swarm_user_id") || "";
-
-    // Remove markers and routes for locations that no longer exist
-    const currentMemberIds = new Set(memberLocations.map((loc) => loc.userId));
-    memberMarkersRef.current.forEach((marker, userId) => {
-      if (!currentMemberIds.has(userId)) {
-        try {
-          marker.remove();
-        } catch (e) {
-          // ignore
-        }
-        memberMarkersRef.current.delete(userId);
-      }
-    });
-
-    // Remove routes for members that no longer exist
-    memberRoutesRef.current.forEach((route, userId) => {
-      if (!currentMemberIds.has(userId)) {
-        try {
-          // Remove outline layer if it exists (for current user's route)
-          if (route.outlineLayerId && map.getLayer && map.getLayer(route.outlineLayerId)) {
-            map.removeLayer(route.outlineLayerId);
-          }
-          if (map.getLayer && map.getLayer(route.layerId)) {
-            map.removeLayer(route.layerId);
-          }
-          if (map.getSource && map.getSource(route.sourceId)) {
-            map.removeSource(route.sourceId);
-          }
-        } catch (e) {
-          // ignore cleanup errors
-        }
-        memberRoutesRef.current.delete(userId);
-      }
-    });
-
-    // Add or update markers and routes for current locations
-    memberLocations.forEach((location) => {
-      const isCurrentUser = location.userId === currentUserId;
-      let marker = memberMarkersRef.current.get(location.userId);
-
-      if (marker) {
-        // Update existing marker position
-        try {
-          marker.setLngLat([location.lng, location.lat]);
-        } catch (e) {
-          // If update fails, remove and recreate
-          try {
-            marker.remove();
-          } catch (e) {
-            // ignore
-          }
-          marker = null;
-        }
-      }
-
-      if (!marker) {
-        // Create new marker
-        try {
-          const el = createMemberMarker(location.name, isCurrentUser);
-          marker = new (window as any).tt.Marker({ element: el })
-            .setLngLat([location.lng, location.lat])
-            .addTo(map);
-          memberMarkersRef.current.set(location.userId, marker);
-        } catch (e) {
-          // ignore marker creation errors
-        }
-      }
-
-      // Draw route from member location to destination (Uber-like style)
-      if (destination && typeof location.lat === 'number' && typeof location.lng === 'number' && 
-          !isNaN(location.lat) && !isNaN(location.lng)) {
-        drawRoute(location.lat, location.lng, location.userId, isCurrentUser).catch((err) => {
-          // eslint-disable-next-line no-console
-          console.error("Error drawing route for member:", location.userId, err);
-        });
-      }
-    });
-  }, [memberLocations, user?.uid, destination, key]);
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
 
   return (
     <div className="w-full h-full relative bg-muted/20">
       <div ref={mapContainer} className="w-full h-full" />
-
-      {/* candidate UI removed; destination now set via search input */}
+      {/* Active trip indicator and ETA */}
+      <div className="absolute top-3 left-3 z-10">
+        {(activeTripRef.current.id || tripEtaRef.current.seconds || tripEtaRef.current.meters) && (
+          <div className="px-3 py-2 rounded-md bg-white/90 shadow border text-sm">
+            {activeTripRef.current.id && <div className="font-medium mb-1">Trip Active</div>}
+            {tripEtaRef.current.label && (
+              <div className="text-xs text-muted-foreground mb-1">To: {tripEtaRef.current.label}</div>
+            )}
+            {tripEtaRef.current.seconds != null && (
+              <div>ETA: {Math.max(1, Math.round((tripEtaRef.current.seconds as number) / 60))} min</div>
+            )}
+            {tripEtaRef.current.meters != null && (
+              <div>Distance: {((tripEtaRef.current.meters as number) / 1000).toFixed(1)} km</div>
+            )}
+          </div>
+        )}
+      </div>
+      {/* Guidance overlay when route cannot render */}
+      <div className="absolute bottom-3 left-3 z-10">
+        {(!((groupDestination ?? destination)?.lat != null && (groupDestination ?? destination)?.lng != null) || (userPos.lat == null || userPos.lng == null)) && (
+          <div className="px-3 py-2 rounded-md bg-white/90 shadow border text-sm max-w-[320px]">
+            {(!((groupDestination ?? destination)?.lat != null && (groupDestination ?? destination)?.lng != null)) && (
+              <div className="mb-2"><span className="font-medium">No destination set.</span> Use the search box to choose a place.</div>
+            )}
+            {(userPos.lat == null || userPos.lng == null) && (
+              <div className="space-y-2">
+                <div className="text-xs text-muted-foreground">Location is unavailable. Allow location access or pick a fallback:</div>
+                <div className="flex gap-2">
+                  <button className="px-2 py-1 text-xs rounded border bg-blue-600 text-white hover:bg-blue-700" onClick={setFromMapCenter}>Use map center</button>
+                  <button className="px-2 py-1 text-xs rounded border hover:bg-muted" onClick={setFromLastKnown}>Use last known</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

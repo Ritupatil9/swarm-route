@@ -3,6 +3,8 @@ import { Card } from "@/components/ui/card";
 import { MapPin, Users, Clock, Bell, Navigation, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
+import TripHistory from "@/pages/TripHistory";
+import RecommendedDestinations from "@/components/RecommendedDestinations";
 
 const Index = () => {
   return (
@@ -43,6 +45,24 @@ const Index = () => {
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Trip History Section */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="max-w-4xl mx-auto">
+          <Card className="p-0 border-primary/10 bg-card/95">
+            <TripHistory />
+          </Card>
+        </div>
+      </section>
+
+      {/* AI Recommendations Section */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="max-w-4xl mx-auto">
+          <Card className="p-0 border-primary/10 bg-card/95">
+            <RecommendedDestinations />
+          </Card>
         </div>
       </section>
 

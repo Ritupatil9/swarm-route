@@ -3,16 +3,13 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MapPin, Clock, Navigation2, Settings, Crown } from "lucide-react";
 import { useEffect, useState } from "react";
-<<<<<<< HEAD
-import { subscribeToGroup, subscribeToMemberLocations, Group, DestinationObject } from "@/lib/groups";
-=======
-import { subscribeToGroup, Group, DestinationObject, updateGroupDestination } from "@/lib/groups";
+import { subscribeToGroup, subscribeToMemberLocations, subscribeToMembers, Group, DestinationObject, updateGroupDestination, MemberProfile } from "@/lib/groups";
+import { logTripStart } from "@/lib/trips";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
 
 interface GroupPanelProps {
   groupId: string;
@@ -20,16 +17,14 @@ interface GroupPanelProps {
 
 const GroupPanel = ({ groupId }: GroupPanelProps) => {
   const [group, setGroup] = useState<Group | null>(null);
-<<<<<<< HEAD
   const [membersInfo, setMembersInfo] = useState<Record<string, any>>({});
-=======
+  const [memberProfiles, setMemberProfiles] = useState<MemberProfile[]>([]);
   const [showDestinationDialog, setShowDestinationDialog] = useState(false);
   const [destinationQuery, setDestinationQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const key = import.meta.env.VITE_TOMTOM_KEY as string | undefined;
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
 
   useEffect(() => {
     if (!groupId) return;
@@ -39,12 +34,16 @@ const GroupPanel = ({ groupId }: GroupPanelProps) => {
       list.forEach((m) => (map[m.id] = m));
       setMembersInfo(map);
     });
+    const unsubProfiles = subscribeToMembers(groupId, (profiles) => setMemberProfiles(profiles));
     return () => {
       try {
         unsub();
       } catch (e) { }
       try {
         unsubMembers();
+      } catch (e) { }
+      try {
+        unsubProfiles();
       } catch (e) { }
     };
   }, [groupId]);
@@ -100,6 +99,7 @@ const GroupPanel = ({ groupId }: GroupPanelProps) => {
   }
 
   const members = group.members ?? [];
+  const profileById = new Map(memberProfiles.map((p) => [p.userId, p]));
 
   return (
     <div className="space-y-4">
@@ -108,14 +108,13 @@ const GroupPanel = ({ groupId }: GroupPanelProps) => {
           <div className="flex items-center gap-2">
             <h3 className="font-semibold">{group.name}</h3>
             {isAdmin && (
-              <Crown className="w-4 h-4 text-yellow-500" title="You are the admin" />
+              <Crown className="w-4 h-4 text-yellow-500" aria-label="You are the admin" />
             )}
           </div>
           <Badge variant="secondary" className="bg-secondary/20">
             {members.length} members
           </Badge>
         </div>
-<<<<<<< HEAD
         <div className="flex items-center gap-2">
           <p className="text-sm text-muted-foreground">Group Code: <span className="font-mono">{(group as any).code ?? group.id}</span></p>
           <button
@@ -131,9 +130,6 @@ const GroupPanel = ({ groupId }: GroupPanelProps) => {
             Copy
           </button>
         </div>
-=======
-        <p className="text-sm text-muted-foreground">Group Code: {group.code || group.id}</p>
->>>>>>> 1e2875640d1f239eb348c59e9e0a8d32ce307f43
       </Card>
 
       <div>
@@ -141,16 +137,22 @@ const GroupPanel = ({ groupId }: GroupPanelProps) => {
         <div className="space-y-3">
           {members.map((memberId) => {
             const info = membersInfo[memberId] ?? null;
-            const name = info?.name ?? memberId;
+            const profile = profileById.get(memberId);
+            const name = profile?.name ?? info?.name ?? memberId;
+            const avatar = profile?.avatar ?? null;
             const coords = info && info.lat && info.lng ? `${Number(info.lat).toFixed(5)}, ${Number(info.lng).toFixed(5)}` : "--";
             const updated = info?.updatedAt ? new Date((info.updatedAt?.seconds ?? info.updatedAt) * 1000).toLocaleTimeString() : "--";
             return (
               <Card key={memberId} className="p-3 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <Avatar className="border-2">
-                      <AvatarFallback>{(name || memberId).slice(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                    {avatar ? (
+                      <div className="w-8 h-8 flex items-center justify-center text-lg">{avatar}</div>
+                    ) : (
+                      <Avatar className="border-2">
+                        <AvatarFallback>{(name || memberId).slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    )}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -211,6 +213,18 @@ const GroupPanel = ({ groupId }: GroupPanelProps) => {
                 return String(d);
               })()}
             </p>
+            <div className="mt-2">
+              <button
+                className="text-xs text-primary underline"
+                onClick={async () => {
+                  const uid = user?.uid || localStorage.getItem("swarm_user_id") || "";
+                  if (!uid) return;
+                  const d = group?.destination as any;
+                  const dest = d && typeof d === "object" && d.lat && d.lng ? { lat: d.lat, lng: d.lng, label: d.label } : null;
+                  try { await logTripStart(uid, groupId, dest); } catch (e) {}
+                }}
+              >Start Trip</button>
+            </div>
           </div>
         </div>
       </Card>
