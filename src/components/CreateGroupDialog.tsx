@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { createGroup } from "@/lib/groups";
+import LocationSearch from "@/components/LocationSearch";
+import { Destination } from "@/contexts/MapContext";
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -22,7 +24,7 @@ interface CreateGroupDialogProps {
 
 const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogProps) => {
   const [groupName, setGroupName] = useState("");
-  const [destination, setDestination] = useState("");
+  const [destination, setDestination] = useState<Destination | null>(null);
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +41,7 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
     setLoading(true);
     try {
       // No auth in this app yet — pass null for creatorId
-      const result = await createGroup({ name: groupName, destination, creatorId: null });
+      const result = await createGroup({ name: groupName, destination: destination as any, creatorId: null });
       const id = result.id;
       const code = result.code;
       toast({
@@ -48,7 +50,7 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
       });
 
       setGroupName("");
-      setDestination("");
+      setDestination(null);
       onOpenChange(false);
       if (typeof onCreated === "function") onCreated(id);
     } catch (err) {
@@ -76,7 +78,7 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
             Start a new travel group and invite your friends to join
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="group-name">Group Name</Label>
@@ -87,15 +89,15 @@ const CreateGroupDialog = ({ open, onOpenChange, onCreated }: CreateGroupDialogP
               onChange={(e) => setGroupName(e.target.value)}
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="destination">Destination</Label>
-            <Input
-              id="destination"
-              placeholder="Enter destination address"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-            />
+            <LocationSearch onSelect={(d) => setDestination(d)} />
+            {destination ? (
+              <p className="text-xs text-muted-foreground mt-2">Selected: {destination.label ?? `${destination.lat.toFixed(5)}, ${destination.lng.toFixed(5)}`}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-2">No destination selected</p>
+            )}
           </div>
         </div>
 

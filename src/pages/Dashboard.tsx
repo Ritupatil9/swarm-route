@@ -7,7 +7,6 @@ import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import MapView from "@/components/MapView";
 import LocationSearch from "@/components/LocationSearch";
-import { MapProvider } from "@/contexts/MapContext";
 import GroupPanel from "@/components/GroupPanel";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import JoinGroupDialog from "@/components/JoinGroupDialog";
@@ -30,7 +29,7 @@ const Dashboard = () => {
               <Users className="w-5 h-5 text-primary" />
               Your Groups
             </h2>
-            
+
             {!activeGroup ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
@@ -63,12 +62,11 @@ const Dashboard = () => {
 
         {/* Map Area */}
         <main className="flex-1 relative">
-          <MapProvider>
-            <MapView />
-            {/* Top-right stack */}
-            <div className="absolute top-4 right-4 z-10 flex flex-col gap-3 w-[320px]">
-              {!activeGroup && <LocationSearch />}
-              <Card className="p-4 bg-card/95 backdrop-blur shadow-lg border-primary/10">
+          <MapView groupId={activeGroup} />
+          {/* Top-right stack */}
+          <div className="absolute top-4 right-4 z-10 flex flex-col gap-3 w-[320px]">
+            {!activeGroup && <LocationSearch />}
+            <Card className="p-4 bg-card/95 backdrop-blur shadow-lg border-primary/10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -82,9 +80,8 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-              </Card>
-            </div>
-          </MapProvider>
+            </Card>
+          </div>
         </main>
       </div>
 
@@ -94,6 +91,9 @@ const Dashboard = () => {
         onOpenChange={setShowCreateDialog}
         onCreated={(id) => {
           setActiveGroup(id);
+          try {
+            localStorage.setItem("swarm_last_group_id", id);
+          } catch (e) {}
           setShowCreateDialog(false);
         }}
       />
@@ -102,6 +102,9 @@ const Dashboard = () => {
         onOpenChange={setShowJoinDialog}
         onJoined={(id: string) => {
           setActiveGroup(id);
+          try {
+            localStorage.setItem("swarm_last_group_id", id);
+          } catch (e) {}
           setShowJoinDialog(false);
         }}
       />

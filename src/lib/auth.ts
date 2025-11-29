@@ -37,6 +37,7 @@ export interface UserProfile {
   bio?: string;
   favoriteDestinations?: string[];
   travelInterests?: string[];
+  avatar?: string;
   createdAt: number;
 }
 

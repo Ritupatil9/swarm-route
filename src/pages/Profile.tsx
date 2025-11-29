@@ -43,6 +43,7 @@ const Profile = () => {
     bio: "",
     favoriteDestinations: "",
     travelInterests: [] as string[],
+    avatar: "🧑",
   });
 
   useEffect(() => {
@@ -54,6 +55,13 @@ const Profile = () => {
         bio: profile.bio || "",
         favoriteDestinations: (profile.favoriteDestinations || []).join(", "),
         travelInterests: profile.travelInterests || [],
+        avatar:
+          profile.avatar ||
+          (profile.gender === "Male"
+            ? "👨"
+            : profile.gender === "Female"
+            ? "👩"
+            : "🧑"),
       });
     }
   }, [profile, isEditing]);
@@ -93,6 +101,14 @@ const Profile = () => {
         .map((d) => d.trim())
         .filter((d) => d);
 
+      const derivedAvatar =
+        formData.avatar ||
+        (formData.gender === "Male"
+          ? "👨"
+          : formData.gender === "Female"
+          ? "👩"
+          : "🧑");
+
       await updateProfile({
         age: formData.age ? parseInt(formData.age) : undefined,
         gender: formData.gender || undefined,
@@ -100,6 +116,7 @@ const Profile = () => {
         bio: formData.bio || undefined,
         favoriteDestinations: destinations,
         travelInterests: formData.travelInterests,
+        avatar: derivedAvatar,
       });
 
       setSuccess("Profile updated successfully!");
@@ -123,9 +140,14 @@ const Profile = () => {
           {/* User Info Card */}
           <Card className="p-6 mb-6">
             <div className="flex items-center gap-6">
-              <Avatar className="w-20 h-20 bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xl font-bold">
-                {user.displayName?.charAt(0) || "U"}
-              </Avatar>
+              <div className="relative">
+                <Avatar className="w-20 h-20 bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xl font-bold">
+                  {formData.avatar || user.displayName?.charAt(0) || "U"}
+                </Avatar>
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-2xl drop-shadow-sm">
+                  {formData.avatar}
+                </div>
+              </div>
               <div className="flex-1">
                 <div className="text-2xl font-bold">{user.displayName || "User"}</div>
                 <div className="text-sm text-muted-foreground">{user.email}</div>
@@ -322,6 +344,50 @@ const Profile = () => {
                     </p>
                   )}
                 </div>
+              )}
+            </Card>
+
+            {/* Row 6: Map Avatar */}
+            <Card className="p-4">
+              <label className="block text-sm font-medium mb-3">
+                Map Avatar (person icon shown on the map)
+              </label>
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    name="avatar"
+                    value={formData.avatar}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, avatar: e.target.value.slice(0, 2) }))
+                    }
+                    className="w-24 text-center text-2xl"
+                    disabled={isSaving}
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {["👨", "👩", "🧑", "👨‍🦱", "👩‍🦱", "👨‍🎓", "👩‍🎓"].map((emo) => (
+                      <button
+                        key={emo}
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            avatar: emo,
+                          }))
+                        }
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-lg border ${
+                          formData.avatar === emo ? "bg-primary text-white" : "bg-muted"
+                        }`}
+                        disabled={isSaving}
+                      >
+                        {emo}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-base text-foreground text-2xl">
+                  {formData.avatar || "🧑"}
+                </p>
               )}
             </Card>
 

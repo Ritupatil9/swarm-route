@@ -11,6 +11,7 @@ import {
   getDocs,
   DocumentData,
   arrayUnion,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -76,6 +77,14 @@ export function subscribeToGroup(groupId: string, cb: (g: Group | null) => void)
   });
 }
 
+export function subscribeToGroups(cb: (groups: Group[]) => void) {
+  const col = collection(db, "groups");
+  return onSnapshot(col, (snap) => {
+    const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) } as Group));
+    cb(items);
+  });
+}
+
 export async function listGroupsByCreator(creatorId: string) {
   const q = query(groupsCol(), where("creatorId", "==", creatorId));
   const snap = await getDocs(q);
@@ -86,5 +95,36 @@ export async function addMember(groupId: string, userId: string) {
   const ref = doc(db, "groups", groupId);
   await updateDoc(ref, {
     members: arrayUnion(userId),
+  });
+}
+
+export async function updateMemberLocation(
+  groupId: string,
+  userId: string,
+  payload: { lat: number; lng: number; name?: string; description?: string; avatar?: string }
+) {
+  const ref = doc(db, "groups", groupId, "members", userId);
+  await setDoc(
+    ref,
+    {
+      lat: payload.lat,
+      lng: payload.lng,
+      name: payload.name ?? userId,
+      description: payload.description ?? null,
+      avatar: payload.avatar ?? null,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export function subscribeToMemberLocations(
+  groupId: string,
+  cb: (members: Array<{ id: string } & DocumentData>) => void
+) {
+  const col = collection(db, "groups", groupId, "members");
+  return onSnapshot(col, (snap) => {
+    const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) }));
+    cb(items);
   });
 }

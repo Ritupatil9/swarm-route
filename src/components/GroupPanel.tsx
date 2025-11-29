@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MapPin, Clock, Navigation2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { subscribeToGroup, Group, DestinationObject } from "@/lib/groups";
+import { subscribeToGroup, subscribeToMemberLocations, Group, DestinationObject } from "@/lib/groups";
 
 interface GroupPanelProps {
   groupId: string;
@@ -11,11 +11,24 @@ interface GroupPanelProps {
 
 const GroupPanel = ({ groupId }: GroupPanelProps) => {
   const [group, setGroup] = useState<Group | null>(null);
+  const [membersInfo, setMembersInfo] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (!groupId) return;
     const unsub = subscribeToGroup(groupId, (g) => setGroup(g));
-    return () => unsub();
+    const unsubMembers = subscribeToMemberLocations(groupId, (list) => {
+      const map: Record<string, any> = {};
+      list.forEach((m) => (map[m.id] = m));
+      setMembersInfo(map);
+    });
+    return () => {
+      try {
+        unsub();
+      } catch (e) { }
+      try {
+        unsubMembers();
+      } catch (e) { }
+    };
   }, [groupId]);
 
   if (!group) {
@@ -37,39 +50,62 @@ const GroupPanel = ({ groupId }: GroupPanelProps) => {
             {members.length} members
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">Group Code: {group.id}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">Group Code: <span className="font-mono">{(group as any).code ?? group.id}</span></p>
+          <button
+            onClick={() => {
+              try {
+                const val = (group as any).code ?? group.id;
+                navigator.clipboard.writeText(String(val));
+              } catch (e) { }
+            }}
+            className="text-xs text-primary underline ml-2"
+            aria-label="Copy group code"
+          >
+            Copy
+          </button>
+        </div>
       </Card>
 
       <div>
         <h4 className="text-sm font-medium mb-3 text-muted-foreground">Group Members</h4>
         <div className="space-y-3">
-          {members.map((memberId) => (
-            <Card key={memberId} className="p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Avatar className="border-2">
-                    <AvatarFallback>{memberId.slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                </div>
+          {members.map((memberId) => {
+            const info = membersInfo[memberId] ?? null;
+            const name = info?.name ?? memberId;
+            const coords = info && info.lat && info.lng ? `${Number(info.lat).toFixed(5)}, ${Number(info.lng).toFixed(5)}` : "--";
+            const updated = info?.updatedAt ? new Date((info.updatedAt?.seconds ?? info.updatedAt) * 1000).toLocaleTimeString() : "--";
+            return (
+              <Card key={memberId} className="p-3 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Avatar className="border-2">
+                      <AvatarFallback>{(name || memberId).slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-medium text-sm truncate">{memberId}</p>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      --
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      --
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium text-sm truncate">{name}</p>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {updated}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {coords}
+                      </span>
+                    </div>
+                    {info?.description ? (
+                      <p className="text-xs text-muted-foreground mt-2 truncate">{info.description}</p>
+                    ) : null}
                   </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       </div>
 

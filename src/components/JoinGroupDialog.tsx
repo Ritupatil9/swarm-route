@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-import { getGroup, getGroupByCode, addMember } from "@/lib/groups";
+import { useAuth } from "@/hooks/useAuth";
+import { getGroup, getGroupByCode, addMember, updateMemberLocation } from "@/lib/groups";
 
 interface JoinGroupDialogProps {
   open: boolean;
@@ -24,6 +24,7 @@ interface JoinGroupDialogProps {
 const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps) => {
   const [groupCode, setGroupCode] = useState("");
   const { toast } = useToast();
+  const { profile } = useAuth();
   const ensureLocalUserId = () => {
     try {
       const key = "swarm_user_id";
@@ -64,6 +65,39 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
       const userId = ensureLocalUserId();
       await addMember(group.id as string, userId);
 
+      // start sharing location for this group (best-effort)
+      try {
+        if (navigator.geolocation) {
+          const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+              try {
+                updateMemberLocation(group.id as string, userId, {
+                  lat: pos.coords.latitude,
+                  lng: pos.coords.longitude,
+                  name: userId,
+                  avatar:
+                    profile?.avatar ||
+                    (profile?.gender === "Male"
+                      ? "👨"
+                      : profile?.gender === "Female"
+                      ? "👩"
+                      : "🧑"),
+                });
+              } catch (e) {
+                // ignore
+              }
+            },
+            () => { },
+            { enableHighAccuracy: true, maximumAge: 5000 }
+          );
+          try {
+            sessionStorage.setItem(`swarm_watch_${group.id}`, String(watchId));
+          } catch (e) { }
+        }
+      } catch (e) {
+        // ignore geolocation errors
+      }
+
       toast({
         title: "Joined successfully!",
         description: `You've been added to ${group.name}`,
@@ -95,7 +129,7 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
             Enter the group code shared by your friend to join their travel group
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="group-code">Group Code</Label>
@@ -110,6 +144,9 @@ const JoinGroupDialog = ({ open, onOpenChange, onJoined }: JoinGroupDialogProps)
               Ask the group creator for the code
             </p>
           </div>
+          <p className="text-xs text-muted-foreground text-center">
+            Your map avatar emoji comes from your profile.
+          </p>
         </div>
 
         <DialogFooter className="sm:justify-center">

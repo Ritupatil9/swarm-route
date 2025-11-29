@@ -13,7 +13,7 @@ type MapContextType = {
   clearDestination: () => void;
 };
 
-const MapContext = createContext<MapContextType | undefined>(undefined);
+export const MapContext = createContext<MapContextType | undefined>(undefined);
 
 export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [destination, setDestinationState] = useState<Destination | null>(null);
